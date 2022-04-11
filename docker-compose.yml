@@ -1,0 +1,54 @@
+version: "2.1"
+services:
+    registry:
+        restart: always
+        image: registry
+        container_name: registry
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.registry.rule=Host(`registry.<your_website_url>`)"
+            - "traefik.docker.network=proxy"
+            - "traefik.http.routers.registry.tls=true"
+            - "traefik.http.routers.registry.entrypoints=websecure"
+            # auth (password is generated using htpasswd, e.g. echo $(htpasswd -nbB test 1234) | sed -e s/\\$/\\$\\$/g ) 
+            - "traefik.http.routers.registry.middlewares=auth-registry"
+            - "traefik.http.middlewares.auth-registry.basicauth.users=USER:PASSWD"
+        volumes:
+            - registry_data:/var/lib/registry
+        networks:
+            - registry_network 
+            - proxy
+
+    web:
+        image: linuxserver/nginx
+        restart: unless-stopped
+        container_name: registry-web
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.registry-web.rule=Host(`registry-web.<your_website_url>`)"
+            - "traefik.docker.network=proxy"
+            - "traefik.http.routers.registry-web.tls=true"
+            - "traefik.http.routers.registry-web.entrypoints=websecure"
+            # auth (password is generated using htpasswd, e.g. echo $(htpasswd -nbB test 1234) | sed -e s/\\$/\\$\\$/g ) 
+            - "traefik.http.routers.registry-web.middlewares=auth-web"
+            - "traefik.http.middlewares.auth-web.basicauth.users=USER:PASSWD"
+
+        volumes:
+            - ./nginx:/config
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=Europe/Zurich
+        networks:
+            - registry_network
+            - proxy
+
+volumes:
+    registry_data:
+
+networks:
+  registry_network:
+  proxy:
+    external: true
+
+
